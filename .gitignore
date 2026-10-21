@@ -58,6 +58,7 @@ next-env.d.ts
 /.taste-skill/
 
 # Generated checks, local state and private credentials
+/wrangler.jsonc
 *.tsbuildinfo
 *.log
 *.zip

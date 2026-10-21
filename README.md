@@ -4,6 +4,8 @@ Discover, Read, Remember. 为四级备考打造、手机优先的个人英文阅
 
 ## GitHub 上传
 
+部署到 Cloudflare Pages + Functions、并绑定 LOCALHOST 免费子域名时，请按 [PAGES_DEPLOY.md](PAGES_DEPLOY.md) 操作。构建命令为 `node scripts/build-pages.mjs`，输出目录为 `dist/pages`。这保留服务端接口，和纯静态 GitHub Pages 不同。
+
 本文件夹是仓库根目录，详见 [GITHUB_UPLOAD.md](GITHUB_UPLOAD.md)。请上传解压后的源码和隐藏目录，不要只上传 ZIP。这个项目有服务端接口，GitHub Pages 无法直接运行完整功能。
 
 ## 本地运行
