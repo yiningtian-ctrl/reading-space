@@ -25,7 +25,7 @@ const localBindingConfig = {
           database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
         },
       ]
-    : [{ binding: "READSPACE_DB", database_name: "readspace-accounts-local", database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID }],
+    : [],
   r2_buckets: r2
     ? [
         {
@@ -72,6 +72,10 @@ export default defineConfig(async ({ command }) => {
           ...localBindingConfig,
           ...(command === "serve"
             ? {
+                d1_databases: [
+                  ...localBindingConfig.d1_databases.filter(database => database.binding !== "READSPACE_DB"),
+                  { binding: "READSPACE_DB", database_name: "readspace-accounts-local", database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID },
+                ],
                 services: [
                   {
                     binding: "CONNECTORS",
