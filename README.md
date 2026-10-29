@@ -8,6 +8,10 @@ Discover, Read, Remember. 为四级备考打造、手机优先的个人英文阅
 
 本文件夹是仓库根目录，详见 [GITHUB_UPLOAD.md](GITHUB_UPLOAD.md)。请上传解压后的源码和隐藏目录，不要只上传 ZIP。这个项目有服务端接口，GitHub Pages 无法直接运行完整功能。
 
+## 账号与跨设备同步
+
+支持用户名与密码登录，使用 Cloudflare D1 保存学习记录，浏览器保留离线副本。上线数据库配置、旧记录迁移、恢复码与同步规则见 [ACCOUNTS.md](ACCOUNTS.md)。生产数据库绑定由 cloudflare-d1.json 与 Pages 构建脚本生成，预览分支不共享生产资料。
+
 ## 本地运行
 
 需要 Node.js 22.18+。运行 `npm install`，再运行 `npm run dev`，打开终端显示的本地地址。`npm run build` 构建 Cloudflare Worker；`npm start` 预览构建产物。技术采用 TypeScript、React、Next.js App Router 兼容的 Vinext、Tailwind CSS 及 localStorage。
@@ -20,11 +24,11 @@ Discover, Read, Remember. 为四级备考打造、手机优先的个人英文阅
 - 词句本：生词／句子切换，单词保留音标（如有）、中英释义、原句与掌握状态；阅读高亮与批注自动归入句子，可编辑个人理解并返回原文。
 - 复习：单词与句子分别进入复习流程，支持查看释义／个人理解、标记掌握与继续巩固；本周复习记录只统计实际答题的本地日期。每次最多 20 项，不含自动间隔复习算法。
 - 我的：阅读积累统计、学习目标、生词 CSV 导出、句子与批注 Markdown 导出、完整 JSON 备份及恢复。
-- 备份：本地 JSON 导出和严格校验后恢复。记录仅存在当前浏览器、当前站点；清除站点数据会丢失。不同设备不自动同步。
+- 备份：本地 JSON 导出和严格校验后恢复。未登录时记录仅保存在当前浏览器；登录后会同步已确认的云端版本。未同步的离线修改仍依赖本机缓存，请保留备份。
 
 ## 内容与辅助的边界
 
-6 篇 ReadSpace 训练文章为本项目原创、由 AI 辅助编写，非四六级真题，难度标签不是官方等级评估。词汇提示、段落结构解析和译文预先编写，不是实时 AI 调用。自行导入文章不伪造解析或翻译，可查词和批注。没有账号、云同步、实时 AI 解析或自动出题。
+6 篇 ReadSpace 训练文章为本项目原创、由 AI 辅助编写，非四六级真题，难度标签不是官方等级评估。词汇提示、段落结构解析和译文预先编写，不是实时 AI 调用。自行导入文章不伪造解析或翻译，可查词和批注。支持账号与云同步；没有实时 AI 解析或自动出题。
 
 真实来源使用官方 RSS 元数据和跳转链接，当前包含 BBC、VOA、Breaking News English、Science News、Smithsonian 和 The Guardian 的 7 条订阅，上游失败时保留已有内容及 British Council 精选。图书馆打开时检查更新，停留期间每 5 分钟检查，阅读器内不轮询。来源清单见 `lib/article-feeds.ts`。
 
@@ -44,6 +48,6 @@ ECDICT 子集同时保留 7,881 个词条的原始英文释义，用于即时展
 
 ## 检查
 
-推荐 Node.js 24。`npm test` 覆盖 24 项单元测试；`npm run typecheck` 检查类型；`npm run build` 检查生产构建。`node scripts/qa.mjs`（也可运行 `scripts/qa-five-tabs.mjs`）验收五入口、书架、词句编辑、两种复习、真实周记录、三种导出、旧备份、阅读器与 320／390／768／1440px 布局。浏览器脚本需要 `playwright-core` 和 Chromium / Edge；可通过 `EDGE_PATH` 指定浏览器，通过 `QA_URL` 指定预览地址。
+推荐 Node.js 24。`npm test` 覆盖阅读功能、账号与同步的单元测试；`npm run typecheck` 检查类型；`npm run build` 检查生产构建。`node scripts/qa.mjs`（也可运行 `scripts/qa-five-tabs.mjs`）验收五入口、书架、词句编辑、两种复习、真实周记录、三种导出、旧备份、阅读器与 320／390／768／1440px 布局。浏览器脚本需要 `playwright-core` 和 Chromium / Edge；可通过 `EDGE_PATH` 指定浏览器，通过 `QA_URL` 指定预览地址。
 
 增强词典的专项检查：`node --test scripts/dictionary.test.mjs` 验证多义项、词形回退和上游失败；`node scripts/qa-dictionary.mjs` 验证手机上的义项选择、输入保护、收藏更新、复习和真实词典响应。浏览器测试使用独立临时上下文，不访问用户现有的个人文章或学习记录。
