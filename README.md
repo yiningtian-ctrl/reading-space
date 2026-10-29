@@ -12,6 +12,9 @@ Discover, Read, Remember. 为四级备考打造、手机优先的个人英文阅
 
 支持用户名与密码登录，使用 Cloudflare D1 保存学习记录，浏览器保留离线副本。上线数据库配置、旧记录迁移、恢复码与同步规则见 [ACCOUNTS.md](ACCOUNTS.md)。生产数据库绑定由 cloudflare-d1.json 与 Pages 构建脚本生成，预览分支不共享生产资料。
 
+## 邮箱验证码
+每个账号必须绑定验证邮箱，新注册需邮箱验证码，支持邮箱验证码登录；老账号先使用原密码登录后绑定邮箱，原云端数据保留。发信由配置在 Cloudflare 机密中的 163 SMTP 客户端授权码支持，详见 [EMAIL_LOGIN.md](EMAIL_LOGIN.md)。
+
 ## 本地运行
 
 需要 Node.js 22.18+。运行 `npm install`，再运行 `npm run dev`，打开终端显示的本地地址。`npm run build` 构建 Cloudflare Worker；`npm start` 预览构建产物。技术采用 TypeScript、React、Next.js App Router 兼容的 Vinext、Tailwind CSS 及 localStorage。

@@ -10,11 +10,21 @@ export class MemoryStorage{
  map=new Map();getItem(key){return this.map.get(key)??null;}setItem(key,value){this.map.set(key,String(value));}removeItem(key){this.map.delete(key);}clear(){this.map.clear();}
 }
 export function device(db,ip='192.0.2.1'){
- let cookie='';const client={offline:false,now:Date.now(),cookie:()=>cookie};
+ let cookie='';const client={offline:false,now:Date.now(),cookie:()=>cookie,mail:[]};
+ const settings=()=>({now:client.now,mailSecret:'local-test-mail-secret',sendMail:async message=>{client.mail.push(message);}});
  client.fetch=async(path,options={})=>{
   if(client.offline)throw new TypeError('Offline');
-  const request=new Request(new URL(path,'https://readspace.test'),{...options,headers:{...options.headers,Origin:'https://readspace.test','CF-Connecting-IP':ip,...(cookie?{Cookie:cookie}:{})}});
-  const response=await handleAccount(request,db,{now:client.now});
+  const headers={...options.headers,Origin:'https://readspace.test','CF-Connecting-IP':ip,...(cookie?{Cookie:cookie}:{})};
+  if(path==='/api/account/register'&&options.body){
+   const input=JSON.parse(options.body);
+   if(!input.email){input.email=String(input.username).trim().toLowerCase()+'@example.test';
+    const exists=db.sql.prepare("SELECT name FROM sqlite_master WHERE name='rs_emails'").get()&&db.sql.prepare('SELECT user_id FROM rs_emails WHERE email=?').get(input.email);
+    if(!exists){const sent=await handleAccount(new Request('https://readspace.test/api/account/email/send',{method:'POST',headers,body:JSON.stringify({email:input.email,purpose:'register'})}),db,settings());const challenge=await sent.json();input.challengeId=challenge.challengeId;input.code=client.mail.at(-1)?.code;}
+    options={...options,body:JSON.stringify(input)};
+   }
+  }
+  const request=new Request(new URL(path,'https://readspace.test'),{...options,headers});
+  const response=await handleAccount(request,db,settings());
   const setCookie=response.headers.get('set-cookie');if(setCookie)cookie=setCookie.split(';')[0];
   return response;
  };

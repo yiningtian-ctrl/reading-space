@@ -2,9 +2,9 @@ import {defaultData,validateData} from './reading.ts';
 import type {StudyData} from './reading.ts';
 import {same,mergeStudy,hasStudyData} from './study-merge.mjs';
 
-export type AccountUser={id:string;username:string};
-export type SyncStatus='checking'|'local'|'syncing'|'synced'|'pending'|'offline'|'conflict'|'expired';
-export type AccountState={user:AccountUser|null;available:boolean|null;status:SyncStatus;error:string;lastSynced:string|null;authBusy:boolean;authRequired:boolean;recoveryCode:string;conflicts:string[];migrationPending:boolean;storageError:boolean};
+export type AccountUser={id:string;username:string;email?:string|null};
+export type SyncStatus='checking'|'local'|'syncing'|'synced'|'pending'|'offline'|'conflict'|'expired'|'email-required';
+export type AccountState={user:AccountUser|null;available:boolean|null;mailReady?:boolean;status:SyncStatus;error:string;lastSynced:string|null;authBusy:boolean;authRequired:boolean;recoveryCode:string;conflicts:string[];migrationPending:boolean;storageError:boolean};
 const GUEST='readspace.study.v1',ACTIVE='readspace.account.v1';
 const dataKey=(id:string)=>'readspace.study.user.'+id;
 const metaKey=(id:string)=>'readspace.sync.user.'+id;
@@ -26,8 +26,8 @@ export class StudySync {
   private write(key:string,value:unknown){try{this.storage.setItem(key,JSON.stringify(value));return true;}catch{if(!this.state.storageError)this.notify('浏览器缓存不可用，请联网完成同步或导出备份。');this.state={...this.state,storageError:true};return false;}}
   private emit(patch:Partial<AccountState>={}){if(this.stopped)return;this.state={...this.state,...patch};this.changed(this.data,this.state,this.ready);}
   private persist(){const u=this.state.user;this.write(u?dataKey(u.id):GUEST,this.data);if(u)this.write(metaKey(u.id),{base:this.base,revision:this.revision,lastSynced:this.state.lastSynced});}
-  private async api<T={user?:unknown;recoveryCode?:unknown}>(path:string,method='GET',payload?:unknown):Promise<T>{
-    const controller=new AbortController();this.requests.add(controller);const timer=setTimeout(()=>controller.abort(),15000);
+  private async api<T={user?:unknown;recoveryCode?:unknown;mailReady?:boolean}>(path:string,method='GET',payload?:unknown):Promise<T>{
+    const controller=new AbortController();this.requests.add(controller);const timer=setTimeout(()=>controller.abort(),path==='/api/account/email/send'?30000:15000);
     try{
       const r=await this.fetcher(path,{method,credentials:'same-origin',cache:'no-store',headers:payload===undefined?{}:{'Content-Type':'application/json'},body:payload===undefined?undefined:JSON.stringify(payload),signal:controller.signal});
       const value:unknown=await r.json();if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('云端响应格式无效。');
@@ -49,9 +49,10 @@ export class StudySync {
     const generation=this.generation;
     try{
       const result=await this.api('/api/account/session');if(this.stopped||generation!==this.generation)return;
-      this.emit({available:true});
+      this.emit({available:true,mailReady:result.mailReady});
       if(isUser(result.user)){
-        if(result.user.id!==this.state.user?.id)this.activate(result.user);else this.emit({authRequired:false});
+        if(result.user.id!==this.state.user?.id)this.activate(result.user);else{this.write(ACTIVE,result.user);this.emit({user:result.user,authRequired:false});}
+        if(!result.user.email){this.emit({status:'email-required'});return;}
         await this.flush();
       }else if(this.state.user)this.emit({status:'expired',authRequired:true,error:'请重新登录，未同步的记录仍保留在此设备。'});
       else this.emit({status:'local',authRequired:false,error:''});
@@ -59,7 +60,7 @@ export class StudySync {
   }
   private activate(user:AccountUser){
     this.generation++;this.busy=false;if(this.timer)clearTimeout(this.timer);this.timer=null;
-    this.state={...initialAccount,available:true,user,status:'syncing',authBusy:this.state.authBusy};this.loadAccount(user);this.write(ACTIVE,user);
+    this.state={...initialAccount,available:true,mailReady:this.state.mailReady,user,status:user.email?'syncing':'email-required',authBusy:this.state.authBusy};this.loadAccount(user);this.write(ACTIVE,user);
     const guest=this.read(GUEST);this.emit({migrationPending:validateData(guest)&&hasStudyData(guest)&&!this.read('readspace.migrated.'+user.id)});
   }
   update(fn:(data:StudyData)=>StudyData){
@@ -67,20 +68,20 @@ export class StudySync {
     this.data=next;this.persist();this.emit(this.state.user&&!this.state.authRequired&&this.state.status!=='conflict'?{status:'pending'}:{});this.queue();
   }
   private queue(delay=1800){if(this.stopped||this.timer||!this.state.user||this.state.authRequired||this.state.status==='conflict')return;this.timer=setTimeout(()=>{this.timer=null;void this.flush();},delay);}
-  async authenticate(mode:'login'|'register'|'recover',username:string,password:string,recoveryCode=''){
+  async authenticate(mode:'login'|'register'|'recover'|'email/login'|'email/bind',username:string,password:string,recoveryCode='',verification:Record<string,string>={}){
     if(this.state.authBusy)return;this.emit({authBusy:true,error:''});
     try{
-      const result=await this.api('/api/account/'+mode,'POST',{username,password,...(mode==='recover'?{recoveryCode}:{})});
+      const result=await this.api('/api/account/'+mode,'POST',{username,password,...verification,...(mode==='recover'?{recoveryCode}:{})});
       if(!isUser(result.user))throw new Error('账号响应无效。');
       if(this.stopped)return;
-      if(result.user.id===this.state.user?.id)this.emit({authRequired:false,status:'syncing',error:''});else this.activate(result.user);
+      if(result.user.id===this.state.user?.id){this.write(ACTIVE,result.user);this.emit({user:result.user,authRequired:false,status:result.user.email?'syncing':'email-required',error:''});}else this.activate(result.user);
       this.emit({recoveryCode:typeof result.recoveryCode==='string'?result.recoveryCode:''});
       await this.flush();
     }catch(e){if(!this.stopped)this.emit({error:e instanceof Error?e.message:'登录失败。'});throw e;}
     finally{this.emit({authBusy:false});}
   }
   async flush(){
-    if(this.stopped||this.busy||!this.state.user||this.state.authRequired||this.state.status==='conflict')return;
+    if(this.stopped||this.busy||!this.state.user||!this.state.user.email||this.state.authRequired||this.state.status==='conflict')return;
     const generation=this.generation;this.busy=true;let success=false;this.emit({status:'syncing'});
     try{
       const remote=await this.api<Remote>('/api/study-sync');if(this.stopped||generation!==this.generation)return;
@@ -106,6 +107,7 @@ export class StudySync {
       else this.emit({status:'offline',error:e instanceof Error?e.message:'同步失败，记录已保留在本机。'});
     }finally{if(generation===this.generation){this.busy=false;if(success&&!same(this.data,this.base))this.queue();}}
   }
+  async sendEmailCode(email:string,purpose:'login'|'register'|'bind'){return this.api<{challengeId:string;retryAfter:number}>('/api/account/email/send','POST',{email,purpose});}
   resolve(prefer:'local'|'cloud'){
     if(!this.conflict)return;
     this.write('readspace.conflict.'+this.state.user!.id,this.conflict);
