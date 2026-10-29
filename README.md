@@ -17,6 +17,8 @@ Discover, Read, Remember. 为四级备考打造、手机优先的个人英文阅
 
 ## 本地运行
 
+手机安装：支持 iOS 与 Android 添加到主屏幕，含各自的导航样式与离线阅读。安装方式和限制见 [MOBILE_APP.md](MOBILE_APP.md)。
+
 需要 Node.js 22.18+。运行 `npm install`，再运行 `npm run dev`，打开终端显示的本地地址。`npm run build` 构建 Cloudflare Worker；`npm start` 预览构建产物。技术采用 TypeScript、React、Next.js App Router 兼容的 Vinext、Tailwind CSS 及 localStorage。
 
 ## 五个入口

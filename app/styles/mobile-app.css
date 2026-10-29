@@ -1,0 +1,20 @@
+/* Platform-specific controls requested for ReadSpace. Reading surfaces stay opaque. */
+.mobile-install{display:grid;grid-template-columns:4fr 6fr;gap:40px;padding-bottom:32px;margin-bottom:32px;border-bottom:1px solid var(--quiet-line)}.mobile-install h2{font-size:19px;font-weight:500;margin:0 0 10px}.mobile-install p{font-size:14px;line-height:1.85;color:var(--quiet-muted);margin:0 0 12px}.mobile-install span{font-size:12px;color:var(--quiet-muted)}.mobile-install-help{background:var(--quiet-well);padding:20px;border-radius:16px}.mobile-install-help .button{margin-bottom:12px}
+@media(max-width:767px){
+ body{padding-top:env(safe-area-inset-top)}.quiet-content{padding-bottom:calc(130px + env(safe-area-inset-bottom))}.mobile-install{grid-template-columns:1fr;gap:16px}.quiet-app .quiet-topbar{min-height:60px}.quiet-app .button,.quiet-app .icon-button{min-height:48px}
+ html[data-platform=ios] .quiet-app{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif}
+ html[data-platform=ios] .quiet-dock{left:12px;right:12px;transform:none;bottom:calc(10px + env(safe-area-inset-bottom));width:auto;border-radius:34px;padding:6px;gap:0;background:rgba(249,250,246,.88);border:1px solid rgba(255,255,255,.92);box-shadow:0 8px 30px #172f2024,inset 0 1px 1px #fff;-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%)}
+ html[data-platform=ios] .quiet-dock>button{border-radius:28px;min-height:60px;padding:8px 0 6px;font-size:11px;gap:3px;transition:background .18s,transform .18s}
+ html[data-platform=ios] .quiet-dock>button.active{background:rgba(66,101,78,.13);color:#1c5137}html[data-platform=ios] .quiet-dock>button.active:before{display:none}html[data-platform=ios] .quiet-dock small{display:none}html[data-platform=ios] .quiet-dock>button:active{transform:scale(.95)}
+ html[data-platform=ios] .quiet-app .button{border-radius:24px}html[data-platform=ios] .quiet-page-title h1{font-weight:650;letter-spacing:-.5px}html[data-platform=ios] .modal{border-radius:26px}
+ html[data-platform=android] .quiet-app{font-family:Roboto,'Noto Sans',system-ui,sans-serif}html[data-platform=android]{--quiet-paper:#f6f8f0;--quiet-well:#e9eee1;--quiet-green:#335b3e}
+ html[data-platform=android] .quiet-dock{left:0;bottom:0;transform:none;width:100%;border:0;border-radius:0;background:#eaf0e3;padding:8px 12px max(12px,env(safe-area-inset-bottom));box-shadow:0 -1px 0 #dce4d5}
+ html[data-platform=android] .quiet-dock>button{position:relative;isolation:isolate;min-height:68px;font-size:12px;gap:5px;overflow:hidden;border-radius:20px}html[data-platform=android] .quiet-dock small{display:none}html[data-platform=android] .quiet-dock>button.active:before{display:none}
+ html[data-platform=android] .quiet-dock>button>svg{box-sizing:content-box;padding:4px 18px;border-radius:20px;transition:background .18s}html[data-platform=android] .quiet-dock>button.active>svg{background:#cee7c8;color:#183c25}html[data-platform=android] .quiet-dock>button.active{font-weight:600}
+ html[data-platform=android] .quiet-app .button{border-radius:18px;letter-spacing:.1px}html[data-platform=android] .quiet-app .button:active,html[data-platform=android] .quiet-dock>button:active{background-color:#c6d8bf;color:#183c25}html[data-platform=android] .quiet-app .button.primary:active{background:#24472e;color:#fff}html[data-platform=android] .modal{border-radius:28px}
+ @supports not (backdrop-filter:blur(1px)){html[data-platform=ios] .quiet-dock{background:#f5f7f0}}
+}
+@media(prefers-reduced-transparency:reduce){html[data-platform=ios] .quiet-dock{background:#f5f7f0;-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(prefers-contrast:more){html[data-platform=ios] .quiet-dock{background:#fff;border-color:#53745d;-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){.quiet-dock>button,.quiet-dock>button>svg{transition:none!important;transform:none!important}}
+@media(display-mode:standalone){.quiet-topbar{padding-top:4px}.reader-toolbar{top:env(safe-area-inset-top)}}
