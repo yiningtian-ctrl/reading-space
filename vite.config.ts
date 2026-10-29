@@ -25,7 +25,7 @@ const localBindingConfig = {
           database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
         },
       ]
-    : [],
+    : [{ binding: "READSPACE_DB", database_name: "readspace-accounts-local", database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID }],
   r2_buckets: r2
     ? [
         {

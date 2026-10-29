@@ -64,12 +64,18 @@ await writeFile(path.join(output, '_routes.json'), JSON.stringify({
   exclude: [...publicPaths, ...publicPrefixes.map((prefix) => prefix + '*')],
 }, null, 2) + '\n');
 
+const databaseSettings = JSON.parse(await readFile(path.join(root, 'cloudflare-d1.json'), 'utf8'));
+// Preview deployments must opt into a separate database; they never inherit production learning data.
+const isPreview = process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH !== 'main';
+const databaseId = isPreview ? process.env.READSPACE_PREVIEW_D1_DATABASE_ID : process.env.READSPACE_D1_DATABASE_ID || databaseSettings.database_id;
+if (databaseId && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(databaseId)) throw new Error('READSPACE_D1_DATABASE_ID must be a D1 database UUID.');
 await writeFile(pagesConfigPath, generatedMarker + JSON.stringify({
   $schema: './node_modules/wrangler/config-schema.json',
   name: 'reading-space',
   pages_build_output_dir: './dist/pages',
   compatibility_date: '2026-05-15',
   compatibility_flags: ['nodejs_compat'],
+  ...(databaseId ? { d1_databases: [{ binding: 'READSPACE_DB', database_name: isPreview ? 'readspace-accounts-preview' : databaseSettings.database_name, database_id: databaseId }] } : {}),
 }, null, 2) + '\n');
 // Replace only Vite's generated deployment redirect, never a source manifest.
 const redirect = path.join(root, '.wrangler/deploy/config.json');
