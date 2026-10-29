@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connection_title">暂时无法打开 ReadSpace</string>
+    <string name="connection_help">请检查网络后重试。首次使用需要联网；已准备好的离线内容会由应用自动读取。本机记录不会因连接失败而清除。</string>
+    <string name="retry">重新连接</string>
+    <string name="open_browser">在浏览器中打开</string>
+</resources>
