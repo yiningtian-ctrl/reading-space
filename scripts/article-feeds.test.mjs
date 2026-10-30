@@ -2,10 +2,18 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FEED_SOURCES, parseFeed, collectFeeds } from "../lib/article-feeds.ts";
 import { isDiscoveryResponse } from "../lib/discovery-types.ts";
+import {curated} from "../lib/articles.ts";
+import {articleImportPolicy} from "../lib/article-import-policy.mjs";
 
 const now=Date.parse("2026-10-19T08:00:00Z");
 const item=(title,url,date="Mon, 19 Oct 2026 01:57:02 GMT")=>`<item><title><![CDATA[${title}]]></title><link>${url}</link><pubDate>${date}</pubDate></item>`;
 const source=FEED_SOURCES[0];
+test("China Daily curated articles are valid official links without copied article bodies",()=>{
+ const articles=curated.filter(a=>a.source==='China Daily');assert.equal(articles.length,3);assert.equal(new Set(articles.map(a=>a.id)).size,3);
+ assert.ok(articles.every(a=>a.paragraphs.length===0&&articleImportPolicy(a.sourceUrl).supported===false));
+ assert.equal(isDiscoveryResponse({articles,sources:[],status:'fallback',checkedAt:new Date(now).toISOString()}),true);
+ assert.equal(isDiscoveryResponse({articles:[{...articles[0],sourceUrl:'https://www.chinadaily.com.cn.evil.test/a/story'}],sources:[],status:'fallback',checkedAt:new Date(now).toISOString()}),false);
+});
 const sourceLink=(s,slug="story")=>`https://${s.hosts[0]}${s.id.startsWith("bbc")?"/news/articles/":s.pathPrefixes?.[0]||"/2610/"}${slug}`;
 test("RSS retains actual dates, decodes titles, rejects unsafe links and deduplicates tracking URLs",()=>{
  const xml=item("Earlier &amp; &#x41;","https://www.bbc.com/news/articles/old","Fri, 16 Oct 2026 08:00:00 GMT")+item("Newest","https://www.bbc.com/news/articles/new?utm_source=rss")+item("Duplicate","https://www.bbc.com/news/articles/new#share")+item("Unsafe","https://www.bbc.com.evil.test/news/articles/a")+item("Insecure","http://www.bbc.com/news/articles/a")+item("Wrong path","https://www.bbc.com/account");
