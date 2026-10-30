@@ -18,19 +18,26 @@ const errors=[],contexts=[];
 const state=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('readspace.study.v1')||'null'));
 const stored=async page=>(await state(page)).imported.find(a=>a.id===article.id);
 async function until(test,label){for(let i=0;i<100;i++){if(await test())return;await new Promise(resolve=>setTimeout(resolve,50));}throw Error('Timed out: '+label);}
+const officialResponse=(route,text,status=200)=>route.fulfill({status,headers:{'access-control-allow-origin':'*'},json:{responseStatus:status,responseData:{translatedText:text},quotaFinished:status===429}});
 async function setup(handler,paragraphs=article.paragraphs){
  const seed={...structuredClone(defaultData),imported:[{...structuredClone(article),paragraphs:structuredClone(paragraphs)}],saved:[article.id]};
  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,locale:'zh-CN',serviceWorkers:'block',userAgent:'Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140.0.0.0 Mobile Safari/537.36 ReadSpaceAndroid/1.0.1'});contexts.push(context);
- await context.addInitScript(seed=>{if(!localStorage.getItem('readspace.study.v1'))localStorage.setItem('readspace.study.v1',JSON.stringify(seed));},seed);
+ await context.addInitScript(seed=>{if(!localStorage.getItem('readspace.study.v1'))localStorage.setItem('readspace.study.v1',JSON.stringify(seed));window.translationFetchOptions=[];const original=window.fetch;window.fetch=function(input,options){if(String(input).startsWith('https://api.mymemory.translated.net/'))window.translationFetchOptions.push({credentials:options?.credentials,referrerPolicy:options?.referrerPolicy,cache:options?.cache});return original.call(this,input,options);};},seed);
  const calls=[];
+ // Fail closed: a changed endpoint must not turn a mock test into a real disclosure.
+ await context.route('**/*',route=>new URL(route.request().url()).origin===new URL(origin).origin?route.continue():route.abort('blockedbyclient'));
  await context.route('**/api/**',async route=>{
   if(new URL(route.request().url()).pathname==='/api/translate'){
-   assert.equal(route.request().method(),'POST');const payload=route.request().postDataJSON();calls.push(payload.text);
-   if(handler)return handler(route,payload,calls.length);
-   return route.fulfill({json:{translation:translations[payload.text],provider:'MyMemory'}});
+   errors.push('Legacy translation proxy must not be called');return route.abort('blockedbyclient');
   }
   if(route.request().url().includes('/api/account/session'))return route.fulfill({json:{user:null,mailReady:false}});
   return route.fulfill({json:{articles:[],sources:[],status:'fallback'}});
+ });
+ await context.route('https://api.mymemory.translated.net/**',async route=>{
+  const request=route.request(),url=new URL(request.url());assert.equal(url.pathname,'/get');assert.equal(request.method(),'GET');
+  const text=url.searchParams.get('q');assert.equal(typeof text,'string');assert.ok(Buffer.byteLength(text,'utf8')<=480);assert.equal(request.headers().cookie,undefined);assert.equal(request.headers().referer,undefined);
+  calls.push(text);if(handler)return handler(route,{text},calls.length);
+  return officialResponse(route,translations[text]);
  });
  const page=await context.newPage();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin+'/#read/'+article.id,{waitUntil:'networkidle'});await page.locator('.reading-body').waitFor();
@@ -51,6 +58,7 @@ try{
   await page.getByRole('button',{name:'中英对照',exact:true}).click();assert.equal(calls.length,0);await startFull(page);
   await until(async()=>(await stored(page)).paragraphs.every(p=>p.zh),'full translation saved');
   assert.deepEqual(calls,article.paragraphs.slice(1).map(p=>p.en));const saved=await stored(page);assert.deepEqual(saved.paragraphs.map(p=>p.en),article.paragraphs.map(p=>p.en));assert.equal(saved.paragraphs[0].zh,article.paragraphs[0].zh);assert.equal(saved.paragraphs[1].translationSource,'MyMemory');assert.ok(validateData(await state(page)));
+  assert.deepEqual(await page.evaluate(()=>window.translationFetchOptions),calls.map(()=>({credentials:'omit',referrerPolicy:'no-referrer',cache:'no-store'})));
   await page.reload({waitUntil:'networkidle'});assert.deepEqual((await stored(page)).paragraphs,saved.paragraphs);assert.equal(calls.length,2);await openFull(page);assert.equal(calls.length,2);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'outputs/qa/translation/full-mobile.png'});
   await page.locator('.paragraph-translation').nth(1).evaluate(el=>el.scrollIntoView({block:'center'}));await page.screenshot({path:'outputs/qa/translation/paragraphs-mobile.png'});
@@ -58,15 +66,15 @@ try{
  }
  {
   let held,release;const gate=new Promise(resolve=>release=resolve);
-  const {page,calls}=await setup(async(route,payload,count)=>{if(count===2){held=route;await gate;}await route.fulfill({json:{translation:translations[payload.text],provider:'MyMemory'}}).catch(()=>{});});
+  const {page,calls}=await setup(async(route,payload,count)=>{if(count===2){held=route;await gate;}await officialResponse(route,translations[payload.text]).catch(()=>{});});
   await startFull(page);await until(()=>!!held,'second paragraph request pending');assert.equal((await stored(page)).paragraphs[1].zh,translations[article.paragraphs[1].en]);
   await page.getByRole('button',{name:'取消文章翻译',exact:true}).click();release();await page.waitForTimeout(200);
   assert.equal((await stored(page)).paragraphs[2].zh,undefined);assert.deepEqual((await stored(page)).paragraphs.map(p=>p.en),article.paragraphs.map(p=>p.en));
   await startFull(page);await until(async()=>!!(await stored(page)).paragraphs[2].zh,'resume after cancellation');assert.deepEqual(calls,[article.paragraphs[1].en,article.paragraphs[2].en,article.paragraphs[2].en]);
   console.log('PASS Cancellation: completed paragraphs remain, late cancelled response cannot write, resume sends only unfinished text.');
  }
- for(const failure of ['server','offline']){
-  const {page,calls}=await setup((route)=>failure==='server'?route.fulfill({status:503,json:{error:'翻译服务暂时不可用，请稍后重试。'}}):route.abort('internetdisconnected'));
+ for(const failure of ['server','quota','offline']){
+  const {page,calls}=await setup((route)=>failure==='offline'?route.abort('internetdisconnected'):officialResponse(route,'Translation temporarily unavailable',failure==='quota'?429:503));
   await startFull(page);await page.getByRole('button',{name:'重试第 2 段翻译',exact:true}).waitFor();
   assert.ok(calls.length>=1);assert.equal((await stored(page)).paragraphs[1].zh,undefined);assert.deepEqual((await stored(page)).paragraphs.map(p=>p.en),article.paragraphs.map(p=>p.en));
   console.log('PASS '+failure+': translation failure is retryable and never replaces the English text.');
@@ -81,7 +89,7 @@ try{
  }
  {
   let held,release;const gate=new Promise(resolve=>release=resolve);
-  const {page}=await setup(async(route,payload)=>{held=route;await gate;await route.fulfill({json:{translation:translations[payload.text],provider:'MyMemory'}}).catch(()=>{});});
+  const {page}=await setup(async(route,payload)=>{held=route;await gate;await officialResponse(route,translations[payload.text]).catch(()=>{});});
   await selectSentence(page);const dialog=page.getByRole('dialog',{name:'选句翻译',exact:true});await dialog.getByRole('button',{name:'翻译这句话',exact:true}).click();await until(()=>!!held,'pending sentence request');
   await dialog.getByRole('button',{name:'取消选句翻译',exact:true}).click();release();await page.waitForTimeout(200);assert.equal(await dialog.locator('.sentence-translation-result').count(),0);assert.equal((await state(page)).notes.length,0);assert.deepEqual((await stored(page)).paragraphs.map(p=>p.en),article.paragraphs.map(p=>p.en));
   console.log('PASS Sentence cancellation: late results stay hidden and no note is created.');
