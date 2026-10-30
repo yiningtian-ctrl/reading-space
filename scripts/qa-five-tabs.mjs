@@ -32,8 +32,8 @@ try{
  await test('The library places saved articles first and includes training, source and imported articles with functioning filters',async()=>{
   await nav(p,'图书馆').click();await p.getByText(external.title,{exact:true}).waitFor();assert.equal(await p.locator('.bookshelf .shelf-book').count(),1);
   assert.ok(await p.locator('.bookshelf').evaluate(el=>el.getBoundingClientRect().top)<await p.locator('.all-articles').evaluate(el=>el.getBoundingClientRect().top));
-  await p.getByRole('button',{name:'四六级训练',exact:true}).click();assert.equal(await p.locator('.quiet-article-row').count(),6);
-  await p.locator('.quiet-filters>summary').click();for(const length of ['short','medium','long']){await p.getByLabel('预计阅读',{exact:true}).selectOption(length);assert.equal(await p.locator('.quiet-article-row').count(),2);}await p.getByLabel('预计阅读',{exact:true}).selectOption('all');await p.locator('.quiet-filters>summary').click();
+  await p.getByRole('button',{name:'四六级训练',exact:true}).click();assert.equal(await p.locator('.quiet-article-row').count(),9);
+  await p.locator('.quiet-filters>summary').click();for(const [length,count] of [['short',5],['medium',2],['long',2]]){await p.getByLabel('预计阅读',{exact:true}).selectOption(length);assert.equal(await p.locator('.quiet-article-row').count(),count);}await p.getByLabel('预计阅读',{exact:true}).selectOption('all');await p.locator('.quiet-filters>summary').click();
   await p.getByRole('button',{name:/^收藏 /}).first().click();assert.equal((await state(p)).saved.length,2);await p.reload({waitUntil:'networkidle'});assert.equal(await p.locator('.shelf-book').count(),2);await p.screenshot({path:'outputs/qa/five-tabs/library-mobile.png'});
  });
  await test('The notebook preserves old words and sentences and supports editing meanings, understanding and mastery',async()=>{

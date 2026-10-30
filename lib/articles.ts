@@ -1,5 +1,6 @@
 import type { Article, Paragraph } from "./reading";
 import { readingExtensions } from "./reading-extensions.ts";
+import {cetPractice} from "./cet-practice.ts";
 
 function p(en: string, zh: string, analysis: string, hints: string[]): Paragraph { return { en, zh, analysis, hints }; }
 
@@ -82,7 +83,7 @@ const baseArticles: Article[] = [
   },
 ];
 
-export const articles: Article[] = baseArticles.map(article => {
+export const articles: Article[] = [...baseArticles,...cetPractice].map(article => {
   const extra=readingExtensions[article.id];
   return extra?{...article,paragraphs:[...article.paragraphs.slice(0,-1),...extra,...article.paragraphs.slice(-1)]}:article;
 });
