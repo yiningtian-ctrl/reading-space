@@ -1,5 +1,5 @@
 import type { Article, Paragraph } from "./reading";
-import { readingExtensions } from "./reading-extensions";
+import { readingExtensions } from "./reading-extensions.ts";
 
 function p(en: string, zh: string, analysis: string, hints: string[]): Paragraph { return { en, zh, analysis, hints }; }
 
@@ -88,6 +88,9 @@ export const articles: Article[] = baseArticles.map(article => {
 });
 
 export const curated: Article[] = [
+  { id: "chinadaily-digital-minimalism-202601", title: "When less tech means more life", subtitle: "年轻人的数字极简生活", topic: "社会与文化", level: 3, source: "China Daily", sourceUrl: "https://www.chinadaily.com.cn/a/202601/23/WS6972e95ea310d6866eb35626.html", kind: "external", image: "/images/study.jpg", date: "2026-01-23T03:21:00.000Z", description: "精选文章：年轻人如何减少数字干扰，重新安排时间。前往原站阅读，或手动粘贴正文精读；难度仅供参考。", paragraphs: [] },
+  { id: "chinadaily-youth-ai-202608", title: "Youth learns to transform future with AI", subtitle: "人工智能与青年学习", topic: "科技与学习", level: 3, source: "China Daily", sourceUrl: "https://global.chinadaily.com.cn/a/202608/22/WS6a88f74ba3106bc57421cdb3.html", kind: "external", image: "/images/city.jpg", date: "2026-08-22T02:20:00.000Z", description: "精选文章：青年学生如何探索人工智能，以及技术对教育的影响。前往原站阅读，或手动粘贴正文精读；难度仅供参考。", paragraphs: [] },
+  { id: "chinadaily-reading-culture-202601", title: "Culture of reading codified into law", subtitle: "阅读文化与公共图书馆", topic: "校园与成长", level: 3, source: "China Daily", sourceUrl: "https://global.chinadaily.com.cn/a/202601/07/WS695dad61a310d6866eb325b0.html", kind: "external", image: "/images/nature.jpg", date: "2026-01-07T00:48:00.000Z", description: "精选文章：从公共阅读设施与图书馆资源了解阅读文化。前往原站阅读，或手动粘贴正文精读；难度仅供参考。", paragraphs: [] },
   { id: "bc-digital", title: "Digital habits across generations", subtitle: "不同年龄的数字生活", topic: "科技与学习", level: 1, source: "British Council", sourceUrl: "https://learnenglish.britishcouncil.org/skills/reading/b1-reading/digital-habits-across-generations", kind: "external", image: "/images/study.jpg", description: "British Council B1 分级阅读 · 可前往官方页面阅读与练习，也可自行粘贴正文精读。", paragraphs: [] },
   { id: "bc-robots", title: "Robot teachers", subtitle: "机器人会走进课堂吗？", topic: "科技与学习", level: 1, source: "British Council", sourceUrl: "https://learnenglish.britishcouncil.org/skills/reading/b1-reading/robot-teachers", kind: "external", image: "/images/city.jpg", description: "British Council B1 分级阅读 · 真实来源精选，保留官方阅读与练习入口。", paragraphs: [] },
   { id: "bc-news", title: "How to spot fake news", subtitle: "如何辨别不实信息", topic: "社会与文化", level: 1, source: "British Council", sourceUrl: "https://learnenglish.britishcouncil.org/skills/reading/b1-reading/how-spot-fake-news", kind: "external", image: "/images/nature.jpg", description: "British Council B1 分级阅读 · 用阅读练习信息辨别，正文请前往原站或手动导入。", paragraphs: [] },
