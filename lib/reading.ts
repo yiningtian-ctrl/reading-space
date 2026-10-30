@@ -1,4 +1,4 @@
-export type Paragraph = { en: string; zh?: string; analysis?: string; hints?: string[] };
+export type Paragraph = { en: string; zh?: string; analysis?: string; hints?: string[]; translationSource?: 'MyMemory' };
 export type Article = {
   id: string; title: string; subtitle: string; topic: string; level: 1 | 2 | 3;
   source: string; sourceUrl?: string; kind: "original" | "external" | "imported";
@@ -21,6 +21,7 @@ export function validateData(value: unknown): value is StudyData {
   if (!value || typeof value !== "object") return false;
   const d = value as StudyData;
   const optionalString=(v:unknown,max=80000)=>v===undefined||(typeof v==="string"&&v.length<=max);
+  if(Array.isArray(d.imported)&&d.imported.some(a=>Array.isArray(a?.paragraphs)&&a.paragraphs.some(p=>!optionalString(p?.zh,80000)||(p?.translationSource!==undefined&&p.translationSource!=='MyMemory'))))return false;
   if(Array.isArray(d.words)&&d.words.some(w=>!optionalString(w?.phonetic,300)))return false;
   if(d.review!==undefined){
     const r=d.review;
