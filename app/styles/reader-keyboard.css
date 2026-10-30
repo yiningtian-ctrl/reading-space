@@ -1,0 +1,9 @@
+/* Word navigation shares one Tab stop per paragraph; mouse and touch keep direct lookup. */
+.reader-keyboard-tip{flex-basis:100%;letter-spacing:0}
+.quiet-app .reader .reading-word:focus-visible{outline:2px solid #335b3e;outline-offset:3px}
+.quiet-app .reader.theme-night :is(.reader-toolbar,.reader-preferences,.reader-article,.selection-bar) :focus-visible{outline-color:#c7d7a7}
+.quiet-app .reader.theme-night .reader-toolbar .text-button{color:var(--reader-ink)}
+.quiet-app .reader.theme-night .reader-toolbar .icon-button{color:var(--reader-muted)}
+.quiet-app .reader.theme-night .reader-toolbar .icon-button.selected{background:var(--reader-panel);color:var(--reader-ink)}
+.quiet-app .reader.theme-night .modal :focus-visible{outline-color:var(--quiet-green)}
+@media(hover:none) and (pointer:coarse){.reader-keyboard-tip{display:none}}

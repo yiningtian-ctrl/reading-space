@@ -1,10 +1,12 @@
 # ReadSpace Android
 
-正式安装包：网站 `/downloads/readspace-1.0.0.apk`，包名 `space.readspace.android`，版本 1.0.0（1）。支持 Android 7.0 / API 24 及以上，系统 Android WebView 需要保持更新。没有原生 CPU 库，同一个 APK 可用于 ARM 与 x86 设备。
+正式安装包：网站 `/downloads/readspace-1.0.1.apk`，包名 `space.readspace.android`，版本 1.0.1（2）。支持 Android 7.0 / API 24 及以上，系统 Android WebView 需要保持更新。没有原生 CPU 库，同一个 APK 可用于 ARM 与 x86 设备。
 
 这是使用系统 WebView 的安卓客户端，加载正式站 `https://reading-space-a42.pages.dev/`，自动使用网站的 Material 风格。登录同一账号后获取原有云端学习记录；浏览器未同步的游客数据需要先导出备份再在应用导入。网页功能更新随正式站生效，安卓外壳的变更需要安装新版 APK。
 
 支持系统返回、状态栏与键盘区域适配、系统文件选择器导入 JSON，以及通过系统“保存文件”对话框导出 JSON / CSV / Markdown。首次使用需要联网。离线能力依赖网站的服务工作线程与已准备好的本机缓存；安装包没有内置文章服务器。验证码、云同步和在线词典补充需要网络。
+
+1.0.1 修复：系统返回优先关闭阅读查词、导入等对话框与展开的阅读设置，再返回上一页；应用内隐藏重复安装介绍，同时保留离线准备状态与“更新应用”。需安装新版 APK 才能获取这两项外壳修复，使用原签名可直接覆盖 1.0.0。备份导出和云端账号规则保持不变。
 
 只声明 INTERNET 权限，不需要通讯录、短信、相机或整盘存储权限。应用内只导航到固定的正式站 HTTPS 来源；外部 HTTPS 链接交给系统浏览器；不忽略证书错误、不允许混合内容、不暴露 JavaScript Java 接口、不启用 WebView 调试。文件导出通过来源限定的 WebMessagePort，选择保存位置后才写入用户指定文件。账号缓存不进入系统云备份或设备迁移备份。
 
