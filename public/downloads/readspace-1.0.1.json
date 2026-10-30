@@ -1,0 +1,11 @@
+{
+  "version": "1.0.1",
+  "versionCode": 2,
+  "package": "space.readspace.android",
+  "minSdk": 24,
+  "targetSdk": 36,
+  "file": "readspace-1.0.1.apk",
+  "bytes": 35918,
+  "sha256": "fc15573d1b490b580fea9730bfcd004ad62b871974f6a74d749260d1ce299e13",
+  "released": "2026-10-30"
+}

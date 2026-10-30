@@ -22,6 +22,7 @@ export default function Reader({article:a,data,update,toast,onBack,onSave,onImpo
   const [chosenSense,setChosenSense]=useState<ChosenSense|null>(null),[retryAttempt,setRetryAttempt]=useState(0);
   const meaningEdited=useRef(false),senseEdited=useRef(false),previousLookup=useRef<typeof lookup>(null);
   const [elapsed,setElapsed]=useState(0),[progress,setProgress]=useState(data.records[a.id]?.progress||0),[editing,setEditing]=useState(false),[newText,setNewText]=useState("");
+  const [activeWords,setActiveWords]=useState<Record<number,number>>({});
   const body=useRef<HTMLDivElement>(null),pendingSeconds=useRef(0),liveProgress=useRef(progress),selectionTimer=useRef<ReturnType<typeof setTimeout>|null>(null),scrolled=useRef(false);
   const settings=data.settings,record=data.records[a.id],isComplete=!!record?.completedAt;
   const articleNotes=data.notes.filter(n=>n.articleId===a.id),articleWords=data.words.filter(w=>w.articleId===a.id);
@@ -76,16 +77,23 @@ export default function Reader({article:a,data,update,toast,onBack,onSave,onImpo
     <article className={`reader-article ${settings.width==="wide"?"wide":""}`}>
       <header className="reader-heading"><div className="reader-category"><span className="pill">{a.level===1?"四级入门":a.level===2?"四级进阶":"六级拓展"}</span><span>{a.topic}</span></div><h1>{a.title}</h1><p className="reader-subtitle">{a.subtitle}</p><div className="reader-byline"><span><FileText size={13}/>{sourceLabel(a)}</span>{count>0&&<><span className="meta-dot">·</span><span><Clock3 size={13}/>{readMinutes(a)} min</span><span className="meta-dot">·</span><span>{count} words</span></>}</div>{a.sourceUrl&&safeUrl(a.sourceUrl)&&<a className="source-link" href={safeUrl(a.sourceUrl)} target="_blank" rel="noopener noreferrer">查看原文来源 <ArrowUpRight size={13}/></a>}</header>
       {a.paragraphs.length>0?<>
-        <div className="reader-tip"><span><span className="tip-dot"/>点词查义</span><span>长按或拖选句子可批注</span><span><Sparkles size={12}/>段落旁展开辅助</span></div>
+        <div className="reader-tip"><span><span className="tip-dot"/>点词查义</span><span>长按或拖选句子可批注</span><span><Sparkles size={12}/>段落旁展开辅助</span><span className="reader-keyboard-tip" id="reader-keyboard-tip">键盘：Tab 切换段落，← → 选词，Enter 查义</span></div>
         <div className="reading-body" ref={body} style={{fontSize:`${settings.fontSize}px`,lineHeight:settings.lineHeight}}>
           {a.paragraphs.map((paragraph,index)=>{
-            const notes=articleNotes.filter(n=>n.paragraph===index),isHelper=helper?.paragraph===index;let offset=0;
+            const notes=articleNotes.filter(n=>n.paragraph===index),isHelper=helper?.paragraph===index,tokens=paragraph.en.split(/([a-zA-Z]+(?:['’–-][a-zA-Z]+)*)/g);
+            const firstWord=tokens.findIndex(part=>/^[a-zA-Z]/.test(part)),savedActive=activeWords[index],activeWord=savedActive!==undefined&&/^[a-zA-Z]/.test(tokens[savedActive]||"")?savedActive:firstWord;let offset=0;
             return <section className={`paragraph-row ${isHelper?"focused":""}`} key={index}>
               <span className="paragraph-number">{String(index+1).padStart(2,"0")}</span>
-              <p className="paragraph-text" data-paragraph={index}>{paragraph.en.split(/([a-zA-Z]+(?:['’–-][a-zA-Z]+)*)/g).map((part,tokenIndex)=>{
+              <p className="paragraph-text" data-paragraph={index}>{tokens.map((part,tokenIndex)=>{
                 const start=offset;offset+=part.length;if(!/^[a-zA-Z]/.test(part))return <span key={tokenIndex}>{part}</span>;
                 const highlighted=notes.some(n=>{const noteStart=n.start??paragraph.en.indexOf(n.quote);return noteStart>=0&&start<(n.end??noteStart+n.quote.length)&&offset>noteStart;}),known=articleWords.some(w=>w.word===cleanWord(part));
-                return <span key={tokenIndex} role="button" tabIndex={0} aria-label={`查词 ${part}`} className={`reading-word ${highlighted?"highlighted":""} ${known?"collected":""}`} onClick={()=>lookupWord(part,index,start)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();lookupWord(part,index,start);}}}>{part}</span>;
+                return <span key={tokenIndex} role="button" tabIndex={tokenIndex===activeWord?0:-1} aria-label={`查词 ${part}`} aria-describedby="reader-keyboard-tip" className={`reading-word ${highlighted?"highlighted":""} ${known?"collected":""}`} onFocus={()=>setActiveWords(current=>current[index]===tokenIndex?current:{...current,[index]:tokenIndex})} onClick={()=>lookupWord(part,index,start)} onKeyDown={e=>{
+                  if(e.key==="Enter"||e.key===" "){e.preventDefault();lookupWord(part,index,start);return;}
+                  if(e.shiftKey||e.altKey||e.ctrlKey||e.metaKey||!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;
+                  const words=Array.from(e.currentTarget.parentElement!.querySelectorAll<HTMLElement>(".reading-word")),position=words.indexOf(e.currentTarget);
+                  const next=e.key==="Home"?0:e.key==="End"?words.length-1:Math.max(0,Math.min(words.length-1,position+(e.key==="ArrowRight"?1:-1)));
+                  e.preventDefault();words[next]?.focus();
+                }}>{part}</span>;
               })}</p>
               <button className={`paragraph-help ${isHelper?"active":""}`} aria-label={`第 ${index+1} 段阅读辅助`} aria-expanded={isHelper} onClick={()=>setHelper(isHelper?null:{paragraph:index,stage:1})}><Sparkles size={15}/></button>
               {isHelper&&<div className="reading-helper"><div className="helper-header"><span><Sparkles size={14}/>一步一步，读懂这一段</span><button aria-label="关闭阅读辅助" className="icon-button" onClick={()=>setHelper(null)}><X size={15}/></button></div><div className="helper-steps">{["词汇提示","结构解析","中文翻译"].map((label,i)=><button key={label} className={helper.stage>=i+1?"active":""} onClick={()=>setHelper({paragraph:index,stage:i+1})}><span>{i+1}</span>{label}</button>)}</div>{paragraph.hints?.length?<><div className="helper-section"><span className="helper-label">01 / WORD CLUES</span><div className="word-clues">{paragraph.hints.map(h=><span key={h}>{h}</span>)}</div></div>{helper.stage>=2&&<div className="helper-section"><span className="helper-label">02 / FOLLOW THE STRUCTURE</span><p>{paragraph.analysis}</p></div>}{helper.stage>=3&&<div className="helper-section translation"><span className="helper-label">03 / CHECK YOUR UNDERSTANDING</span><p>{paragraph.zh}</p></div>}{helper.stage<3&&<button className="text-button next-hint" onClick={()=>setHelper({...helper,stage:helper.stage+1})}>还需要帮助？{helper.stage===1?"展开结构解析":"看看中文翻译"}<ArrowRight size={14}/></button>}<span className="helper-footnote">预编写阅读辅助，非实时 AI 生成</span></>:<div className="helper-unavailable"><p>这篇文章还没有预编写的结构解析和译文。</p><p>你可以点词查义，或选中句子写下自己的理解。实时 AI 解析留待后续版本。</p><button className="text-button" onClick={()=>{setNote({quote:paragraph.en,paragraph:index,start:0,end:paragraph.en.length});setNoteText("");}}>写下我的理解 <MessageSquare size={14}/></button></div>}</div>}

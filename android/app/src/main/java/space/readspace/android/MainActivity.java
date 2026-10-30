@@ -7,6 +7,8 @@ import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
@@ -50,6 +52,10 @@ public class MainActivity extends Activity {
     private byte[] pendingExport;
     private WebMessagePort[] ports;
     private OnBackInvokedCallback backCallback;
+    private final Handler backHandler = new Handler(Looper.getMainLooper());
+    private int backRequest;
+    private boolean backPending;
+    private String backPage;
     private final ExecutorService writes = Executors.newSingleThreadExecutor();
 
     @Override public void onCreate(Bundle state) {
@@ -102,7 +108,7 @@ public class MainActivity extends Activity {
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setSupportMultipleWindows(true);
-        s.setUserAgentString(s.getUserAgentString() + " ReadSpaceAndroid/1.0.0");
+        s.setUserAgentString(s.getUserAgentString() + " ReadSpaceAndroid/1.0.1");
         if (Build.VERSION.SDK_INT >= 26) s.setSafeBrowsingEnabled(true);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
@@ -237,13 +243,37 @@ public class MainActivity extends Activity {
     private void closePorts() { if (ports != null) { for (WebMessagePort port : ports) try { port.close(); } catch (Exception ignored) {} ports = null; } }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private void message(String text) { Toast.makeText(this, text, Toast.LENGTH_LONG).show(); }
-    private void goBack() { if (web.canGoBack()) web.goBack(); else moveTaskToBack(true); }
+    private void goBack() {
+        if (backPending) return;
+        if (!UrlPolicy.trusted(web.getUrl())) { backInHistory(); return; }
+        try (InputStream in = getAssets().open("native-back.js")) {
+            ByteArrayOutputStream source = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096]; int count;
+            while ((count = in.read(buffer)) != -1) source.write(buffer, 0, count);
+            int request = ++backRequest;
+            backPage = web.getUrl(); backPending = true;
+            // A slow renderer cannot leave Back stuck; completion consumes this
+            // request once, so a late JS callback never causes a second fallback.
+            backHandler.postDelayed(() -> completeBack(request, false), 1500);
+            web.evaluateJavascript(new String(source.toByteArray(), StandardCharsets.UTF_8), value -> completeBack(request, "true".equals(value)));
+        } catch (Exception e) {
+            if (backPending) completeBack(backRequest, false); else backInHistory();
+        }
+    }
+    private void completeBack(int request, boolean handled) {
+        if (!backPending || request != backRequest) return;
+        backPending = false;
+        backHandler.removeCallbacksAndMessages(null);
+        if (!handled && java.util.Objects.equals(backPage, web.getUrl())) backInHistory();
+    }
+    private void backInHistory() { if (web.canGoBack()) web.goBack(); else moveTaskToBack(true); }
     // API 33+ registers OnBackInvokedCallback above; this override serves API 24–32 only.
     @android.annotation.SuppressLint("GestureBackNavigation")
     @SuppressWarnings("deprecation") @Override public void onBackPressed() { goBack(); }
     @Override protected void onPause() { CookieManager.getInstance().flush(); super.onPause(); }
     @Override protected void onSaveInstanceState(Bundle out) { web.saveState(out); super.onSaveInstanceState(out); }
     @Override protected void onDestroy() {
+        backPending = false; backHandler.removeCallbacksAndMessages(null);
         closePorts();
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         if (Build.VERSION.SDK_INT >= 33 && backCallback != null) getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);

@@ -2,7 +2,7 @@
   window.__readspaceNativeToken = __READSPACE_PORT_TOKEN__;
   if (window.__readspaceNativeDownloads) return;
   window.__readspaceNativeDownloads = true;
-  const style = document.createElement('style'); style.textContent = '.mobile-install{display:none}'; document.head.append(style);
+  const style = document.createElement('style'); style.textContent = '.mobile-install-intro{display:none}.mobile-install{grid-template-columns:1fr}'; document.head.append(style);
   let port, busy = false;
   window.addEventListener('message', event => {
     if (event.data !== window.__readspaceNativeToken || !event.ports?.[0]) return;

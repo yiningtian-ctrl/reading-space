@@ -1,0 +1,52 @@
+import {chromium} from 'playwright-core';
+import assert from 'node:assert/strict';
+import {mkdir,readFile} from 'node:fs/promises';
+const origin=process.env.QA_URL||'http://127.0.0.1:8793';
+const browser=await chromium.launch({executablePath:process.env.EDGE_PATH||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
+const errors=[];
+const dictionary={meaning:'测试释义',pos:'n.',english:[],englishStatus:'not-found'};
+await mkdir('outputs/qa/reader-keyboard',{recursive:true});
+try{
+ const context=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'}),p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));
+ p.setDefaultTimeout(12000);p.setDefaultNavigationTimeout(20000);
+ await p.route('**/api/dictionary?**',r=>r.fulfill({json:dictionary}));
+ await p.goto(origin+'/#read/green-spaces',{waitUntil:'networkidle'});await p.locator('.reading-word').first().waitFor();
+ if(process.env.QA_INJECT_READER_CSS==='1')await p.addStyleTag({content:await readFile('app/styles/reader-keyboard.css','utf8')});
+ const paragraphs=p.locator('.paragraph-text'),first=paragraphs.first(),words=first.locator('.reading-word');
+ const count=await paragraphs.count();assert.equal(await p.locator('.reading-word[tabindex="0"]').count(),count);assert.ok(await p.locator('.reading-word').count()>count*20);
+ await words.first().focus();await p.keyboard.press('Tab');assert.equal(await p.locator('.paragraph-help').first().evaluate(el=>el===document.activeElement),true);
+ await p.keyboard.press('Shift+Tab');await p.keyboard.press('ArrowRight');assert.equal(await words.nth(1).evaluate(el=>el===document.activeElement),true);
+ assert.equal(await first.locator('.reading-word[tabindex="0"]').count(),1);
+ await p.keyboard.press('Tab');await p.keyboard.press('Shift+Tab');assert.equal(await words.nth(1).evaluate(el=>el===document.activeElement),true);
+ await p.keyboard.press('End');assert.equal(await words.last().evaluate(el=>el===document.activeElement),true);await p.keyboard.press('ArrowRight');assert.equal(await words.last().evaluate(el=>el===document.activeElement),true);
+ await p.keyboard.press('Home');await p.keyboard.press('ArrowLeft');assert.equal(await words.first().evaluate(el=>el===document.activeElement),true);
+ await p.keyboard.press('Enter');await p.getByRole('dialog').waitFor();await p.keyboard.press('Tab');assert.equal(await p.getByRole('button',{name:'关闭',exact:true}).evaluate(el=>el===document.activeElement),true);
+ await p.getByLabel('我的释义',{exact:false}).fill('键盘收藏的释义');await p.getByRole('button',{name:'收藏单词与原句',exact:true}).click();
+ assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('readspace.study.v1')).words[0].meaning),'键盘收藏的释义');
+ await p.keyboard.press('Escape');assert.equal(await words.first().evaluate(el=>el===document.activeElement),true);
+ await p.screenshot({path:'outputs/qa/reader-keyboard/desktop.png'});
+ // Modified arrows remain available for native text selection rather than word navigation.
+ await p.evaluate(()=>{const listen=e=>{if(e.shiftKey&&e.key==='ArrowRight'){window.modifiedArrowPrevented=e.defaultPrevented;document.removeEventListener('keydown',listen);}};document.addEventListener('keydown',listen);});await p.keyboard.press('Shift+ArrowRight');assert.equal(await p.evaluate(()=>window.modifiedArrowPrevented),false);
+ await p.evaluate(()=>window.getSelection()?.removeAllRanges());
+ await p.getByRole('button',{name:'阅读设置',exact:true}).click();await p.getByRole('button',{name:'夜间背景',exact:true}).click();await p.waitForFunction(()=>getComputedStyle(document.querySelector('.reader')).backgroundColor==='rgb(32, 43, 36)');
+ await words.first().focus();await p.keyboard.press('Tab');await p.keyboard.press('Shift+Tab');
+ const focus=await words.first().evaluate(el=>({visible:el.matches(':focus-visible'),outline:getComputedStyle(el).outlineColor,width:getComputedStyle(el).outlineWidth,background:getComputedStyle(el.closest('.reader')).backgroundColor}));
+ assert.equal(focus.visible,true);assert.equal(focus.outline,'rgb(199, 215, 167)');assert.equal(focus.width,'2px');
+ const luminance=rgb=>rgb.match(/\d+/g).slice(0,3).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+ assert.ok((luminance(focus.outline)+.05)/(luminance(focus.background)+.05)>3);
+ const toolbar=await p.locator('.reader-toolbar').evaluate(el=>({background:getComputedStyle(el.closest('.reader')).backgroundColor,text:getComputedStyle(el.querySelector('.text-button')).color,icon:getComputedStyle(el.querySelector('.icon-button')).color}));
+ assert.ok((luminance(toolbar.text)+.05)/(luminance(toolbar.background)+.05)>=4.5,'Night back link remains readable');assert.ok((luminance(toolbar.icon)+.05)/(luminance(toolbar.background)+.05)>=3,'Night toolbar icons remain visible');
+ async function checkToolbarIcons(){const icons=await p.locator('.reader-toolbar .icon-button').evaluateAll(items=>items.map(el=>({color:getComputedStyle(el).color,background:getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(el.closest('.reader')).backgroundColor:getComputedStyle(el).backgroundColor})));
+  for(const icon of icons){const levels=[luminance(icon.color),luminance(icon.background)].sort((a,b)=>b-a);assert.ok((levels[0]+.05)/(levels[1]+.05)>=3,'Night toolbar icons in default/selected/hover/focus states contrast with their own surface');}}
+ const icons=p.locator('.reader-toolbar .icon-button');await checkToolbarIcons();await icons.first().hover();await checkToolbarIcons();await icons.last().hover();await checkToolbarIcons();await icons.last().focus();await p.keyboard.press('Shift+Tab');await checkToolbarIcons();await p.keyboard.press('Tab');await checkToolbarIcons();await words.first().focus();
+ await p.screenshot({path:'outputs/qa/reader-keyboard/night.png'});
+ await p.keyboard.press('Enter');await p.getByRole('dialog').waitFor();await p.keyboard.press('Tab');
+ const modalFocus=await p.getByRole('button',{name:'关闭',exact:true}).evaluate(el=>({outline:getComputedStyle(el).outlineColor,background:getComputedStyle(el.closest('.modal')).backgroundColor}));
+ const modalLum=[luminance(modalFocus.outline),luminance(modalFocus.background)].sort((a,b)=>b-a);assert.ok((modalLum[0]+.05)/(modalLum[1]+.05)>=3,'Night-mode lookup keeps a contrasting focus on its light dialog');await p.keyboard.press('Escape');
+ const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const m=await mobile.newPage();m.on('pageerror',e=>errors.push(e.message));await m.route('**/api/dictionary?**',r=>r.fulfill({json:dictionary}));
+ m.setDefaultTimeout(12000);m.setDefaultNavigationTimeout(20000);
+ await m.goto(origin+'/#read/green-spaces',{waitUntil:'networkidle'});await m.locator('.reading-word').nth(2).tap();await m.getByRole('dialog').waitFor();await m.getByRole('button',{name:'关闭',exact:true}).tap();
+ await m.evaluate(()=>{const el=document.querySelector('.paragraph-text'),range=document.createRange();range.selectNodeContents(el);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);});await m.locator('.selection-bar').waitFor();assert.equal(await m.getByRole('button',{name:'高亮',exact:true}).isVisible(),true);
+ assert.deepEqual(errors,[]);console.log(`PASS Reader: ${count} paragraph Tab stops, arrows/Home/End, reachable helpers, keyboard dictionary/save/Escape, modified selection keys, night focus contrast, touch lookup and sentence selection.`);
+ await context.close();await mobile.close();
+}finally{await browser.close();}
