@@ -15,4 +15,4 @@
 
 验证：`node scripts/qa-mobile-app.mjs` 需要本地 Pages 预览，默认地址 `http://127.0.0.1:8793`（可用 QA_URL 修改）。覆盖两种设备 UA 的布局、安装元数据、图标、离线重开、本机词汇保留和 API 缓存排除。Chromium 的设备模拟不等于真实 Safari 或 Android 系统验收，主屏幕安装还需在实际手机上完成。
 
-这次提供网页可安装应用，不包含 APK、IPA、App Store 或 Play Store 发布。
+Android 另提供可直接安装的 [APK](/downloads/readspace-1.0.0.apk)，构建和验证说明见 [android/README.md](android/README.md)。iOS 继续使用添加到主屏幕的方式。本项目尚未发布到 App Store 或 Play Store。
